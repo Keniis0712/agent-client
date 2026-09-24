@@ -109,7 +109,7 @@ interface AgentBootstrapInput {
 }
 ```
 
-Device Daemon 将 bundle 写入 Runtime 临时目录，并在 Runtime 回收时删除。角色硬约束必须放在始终生效的 system prompt；详细工作流可以作为 Claude 原生 Skill 按需加载。
+Device Daemon 将 bundle 写成 Runtime 临时 Claude Plugin，并通过 SDK 的 `plugins` 和 `skills` 选项作为原生 Skill 加载；Runtime 回收时临时目录一并删除。Skill 文件不再拼接进常驻 system prompt。角色硬约束仍放在始终生效的 system prompt。
 
 ## 7. 权限与审批
 
@@ -123,7 +123,7 @@ interface PermissionPolicy {
 }
 ```
 
-规则支持精确工具名和后缀 `*` 前缀匹配，deny 优先。`allowedTools` 表示无需询问即可执行，并不等价于工具可见性白名单；需要从模型上下文移除工具时使用 Claude SDK 的 `tools` 配置。
+规则支持精确工具名和后缀 `*` 前缀匹配，deny 优先。`allowedTools` 表示无需询问即可执行，并不等价于工具可见性白名单。主 Agent 在平台层只保留 Claude 的 `Skill` 内置工具和 Console MCP；Bash、Read、Write、Edit、Agent 等内置工具不会进入其工具上下文。项目 Agent 继续使用完整 Claude Code 工具集。
 
 项目和全局策略负责自动允许只读 MCP、额外 allow/deny 工具。待处理审批由 Console 展示并通过原始会话连接回传。
 

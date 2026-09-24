@@ -6,6 +6,7 @@ import test from "node:test";
 
 import { createSessionSchema } from "../src/protocol/schemas.js";
 import {
+  bootstrapFingerprint,
   compileBootstrapInstructions,
   controlContextFingerprint,
   materializeSkillBundles,
@@ -65,14 +66,25 @@ test("bootstrap bundles are materialized under the runtime overlay", async () =>
         files: { "SKILL.md": "# Project Agent", "refs/reporting.md": "Report sparingly." },
       }],
     };
-    await materializeSkillBundles(directory, bootstrap);
-    assert.equal(
-      await readFile(join(directory, "skills", "project-agent@1.0.0", "SKILL.md"), "utf8"),
-      "# Project Agent",
+    const plugin = await materializeSkillBundles(directory, bootstrap);
+    assert.deepEqual(plugin?.skillNames, ["agent-project-console-runtime:project-agent"]);
+    assert.match(
+      await readFile(join(directory, "claude-plugin", "skills", "project-agent", "SKILL.md"), "utf8"),
+      /^---\nname: project-agent\ndescription:/,
     );
+    const manifest = JSON.parse(await readFile(
+      join(directory, "claude-plugin", ".claude-plugin", "plugin.json"),
+      "utf8",
+    ));
+    assert.equal(manifest.name, "agent-project-console-runtime");
     const instructions = compileBootstrapInstructions(bootstrap, context) ?? "";
     assert.match(instructions, /Role: project/);
-    assert.match(instructions, /Report sparingly/);
+    assert.match(instructions, /Own the project/);
+    assert.doesNotMatch(instructions, /Report sparingly/);
+    assert.notEqual(
+      bootstrapFingerprint(bootstrap),
+      bootstrapFingerprint({ ...bootstrap, skillBundles: [{ ...bootstrap.skillBundles[0]!, version: "1.0.1" }] }),
+    );
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

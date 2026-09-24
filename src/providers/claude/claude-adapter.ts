@@ -100,6 +100,8 @@ export class ClaudeAdapter implements AgentAdapter {
     private readonly profileConfigDir?: string,
     private readonly instructions?: string,
     private readonly mcpServer?: StartSessionOptions["mcpServer"],
+    private readonly skillPlugin?: { path: string; skillNames: string[] },
+    private readonly builtInTools?: string[],
   ) {}
 
   onEvent(listener: (event: ProviderEvent) => void): () => void {
@@ -268,14 +270,25 @@ export class ClaudeAdapter implements AgentAdapter {
         ...(resume ? { resume } : {}),
         ...(!resume ? { sessionId: provisionalId } : {}),
         ...(native.model ? { model: native.model } : {}),
-        ...(this.profile ? { settingSources: [] } : {}),
+        ...(this.profile || this.builtInTools !== undefined ? { settingSources: [] } : {}),
+        ...(this.builtInTools !== undefined
+          ? { managedSettings: { disableBundledSkills: true } }
+          : {}),
         persistSession: true,
         ...(this.sessionStore
           ? { sessionStore: this.sessionStore, sessionStoreFlush: "eager" as const }
           : {}),
         includePartialMessages: true,
+        ...(this.builtInTools ? { tools: this.builtInTools } : {}),
+        ...(this.skillPlugin
+          ? {
+              plugins: [{ type: "local" as const, path: this.skillPlugin.path, skipMcpDiscovery: true }],
+              pluginDelivery: "initialize" as const,
+              skills: this.skillPlugin.skillNames,
+            }
+          : {}),
         permissionMode: this.claudePermissionMode(permissionPolicy),
-        allowedTools: permissionPolicy.allowedTools,
+        ...(this.builtInTools === undefined ? { allowedTools: permissionPolicy.allowedTools } : {}),
         disallowedTools: permissionPolicy.disallowedTools,
         env: this.claudeEnv(),
         canUseTool: async (toolName, toolInput, control) =>
@@ -593,6 +606,7 @@ export class ClaudeAdapter implements AgentAdapter {
       return {
         ...process.env,
         CLAUDE_CONFIG_DIR: process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), ".claude"),
+        ...(this.builtInTools !== undefined ? { CLAUDE_CODE_DISABLE_BUNDLED_SKILLS: "1" } : {}),
         CLAUDE_AGENT_SDK_CLIENT_APP: "agent-gateway/0.1.0",
       };
     }
@@ -604,6 +618,7 @@ export class ClaudeAdapter implements AgentAdapter {
       ANTHROPIC_AUTH_TOKEN: this.profile.apiKey,
       ANTHROPIC_BASE_URL: this.profile.baseUrl.replace(/\/$/, ""),
       ...(this.profileConfigDir ? { CLAUDE_CONFIG_DIR: this.profileConfigDir } : {}),
+      ...(this.builtInTools !== undefined ? { CLAUDE_CODE_DISABLE_BUNDLED_SKILLS: "1" } : {}),
       CLAUDE_AGENT_SDK_CLIENT_APP: "agent-gateway/0.1.0",
     };
   }

@@ -7,7 +7,12 @@ import { SqliteClaudeSessionStore } from "../providers/claude/sqlite-session-sto
 import { createId } from "../shared/ids.js";
 import { GatewayError } from "../shared/errors.js";
 import { profileFingerprint } from "./runtime-profile.js";
-import { compileBootstrapInstructions, controlContextFingerprint, materializeSkillBundles } from "./runtime-bootstrap.js";
+import {
+  bootstrapFingerprint,
+  compileBootstrapInstructions,
+  controlContextFingerprint,
+  materializeSkillBundles,
+} from "./runtime-bootstrap.js";
 import { projectConsoleMcp } from "../mcp/runtime-config.js";
 import { normalizeClaudeHistory } from "../providers/history.js";
 
@@ -46,7 +51,11 @@ export class RuntimeManager {
     bootstrap?: AgentBootstrapInput,
   ): Promise<RuntimeHandle> {
     const fingerprint = profileFingerprint(profile);
-    const runtimeKey = `${fingerprint}:${controlContextFingerprint(controlContext)}`;
+    const runtimeKey = [
+      fingerprint,
+      controlContextFingerprint(controlContext),
+      bootstrapFingerprint(bootstrap),
+    ].join(":");
     let runtime = this.runtimes.get(runtimeKey);
     if (!runtime) {
       if (this.runtimes.size >= this.options.maxWorkers) {
@@ -100,7 +109,7 @@ export class RuntimeManager {
     const id = createId("run");
     const runtimeDir = resolve(this.options.runtimeRoot, id);
     await mkdir(runtimeDir, { recursive: true });
-    await materializeSkillBundles(runtimeDir, bootstrap);
+    const skillPlugin = await materializeSkillBundles(runtimeDir, bootstrap);
     const instructions = compileBootstrapInstructions(bootstrap, controlContext);
     const mcpServer = projectConsoleMcp(controlContext);
     const claudeProfileConfigDir = join(runtimeDir, "claude-config");
@@ -113,6 +122,8 @@ export class RuntimeManager {
       claudeProfileConfigDir,
       instructions,
       mcpServer,
+      skillPlugin,
+      controlContext?.role === "orchestrator" ? (skillPlugin ? ["Skill"] : []) : undefined,
     );
     return {
       key,

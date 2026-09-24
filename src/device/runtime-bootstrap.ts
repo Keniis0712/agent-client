@@ -4,6 +4,13 @@ import { dirname, join, normalize, relative, resolve } from "node:path";
 import type { AgentBootstrapInput, ControlContext } from "../protocol/types.js";
 import { GatewayError } from "../shared/errors.js";
 
+const RUNTIME_PLUGIN_NAME = "agent-project-console-runtime";
+
+export interface MaterializedSkillPlugin {
+  path: string;
+  skillNames: string[];
+}
+
 function safeSegment(value: string): string {
   const sanitized = value.replace(/[^a-zA-Z0-9._-]+/g, "_");
   if (!sanitized || sanitized === "." || sanitized === "..") {
@@ -34,6 +41,21 @@ export function controlContextFingerprint(context?: ControlContext): string {
     .digest("hex");
 }
 
+export function bootstrapFingerprint(bootstrap?: AgentBootstrapInput): string {
+  if (!bootstrap) return "no-bootstrap";
+  const normalized = {
+    instructionsVersion: bootstrap.instructionsVersion,
+    instructions: bootstrap.instructions,
+    skillBundles: (bootstrap.skillBundles ?? []).map((bundle) => ({
+      id: bundle.id,
+      version: bundle.version,
+      sha256: bundle.sha256 ?? "",
+      files: Object.entries(bundle.files).sort(([a], [b]) => a.localeCompare(b)),
+    })),
+  };
+  return createHash("sha256").update(JSON.stringify(normalized)).digest("hex");
+}
+
 export function compileBootstrapInstructions(
   bootstrap?: AgentBootstrapInput,
   context?: ControlContext,
@@ -53,29 +75,48 @@ export function compileBootstrapInstructions(
   if (bootstrap?.instructions) {
     sections.push(`# Role contract (${bootstrap.instructionsVersion})\n${bootstrap.instructions}`);
   }
-  for (const bundle of bootstrap?.skillBundles ?? []) {
-    const files = Object.entries(bundle.files)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([name, content]) => `## ${name}\n${content}`)
-      .join("\n\n");
-    sections.push(`# Skill bundle: ${bundle.id}@${bundle.version}\n${files}`);
-  }
   return sections.join("\n\n");
 }
 
 export async function materializeSkillBundles(
   runtimeDir: string,
   bootstrap?: AgentBootstrapInput,
-): Promise<void> {
-  if (!bootstrap?.skillBundles?.length) return;
-  const skillsRoot = join(runtimeDir, "skills");
+): Promise<MaterializedSkillPlugin | undefined> {
+  if (!bootstrap?.skillBundles?.length) return undefined;
+  const pluginRoot = join(runtimeDir, "claude-plugin");
+  const skillsRoot = join(pluginRoot, "skills");
+  await mkdir(join(pluginRoot, ".claude-plugin"), { recursive: true });
+  await writeFile(
+    join(pluginRoot, ".claude-plugin", "plugin.json"),
+    `${JSON.stringify({
+      name: RUNTIME_PLUGIN_NAME,
+      version: "1.0.0",
+      description: "Runtime skills supplied by Agent Project Console",
+    }, null, 2)}\n`,
+    { encoding: "utf8", mode: 0o600 },
+  );
+  const skillNames: string[] = [];
+  const directories = new Set<string>();
   for (const bundle of bootstrap.skillBundles) {
-    const bundleRoot = join(skillsRoot, `${safeSegment(bundle.id)}@${safeSegment(bundle.version)}`);
+    const skillId = safeSegment(bundle.id);
+    if (directories.has(skillId)) {
+      throw new GatewayError("BOOTSTRAP_INVALID", `Duplicate skill id after normalization: ${bundle.id}`);
+    }
+    directories.add(skillId);
+    const manifest = bundle.files["SKILL.md"];
+    if (!manifest) {
+      throw new GatewayError("BOOTSTRAP_INVALID", `Skill bundle ${bundle.id} is missing SKILL.md`);
+    }
+    const bundleRoot = join(skillsRoot, skillId);
     for (const [name, content] of Object.entries(bundle.files)) {
       const target = safeFile(bundleRoot, name);
       await mkdir(dirname(target), { recursive: true });
-      await writeFile(target, content, { encoding: "utf8", mode: 0o600 });
+      const value = name === "SKILL.md" && !content.trimStart().startsWith("---")
+        ? `---\nname: ${skillId}\ndescription: ${JSON.stringify(`Workflow instructions for ${bundle.id}`)}\n---\n\n${content}`
+        : content;
+      await writeFile(target, value, { encoding: "utf8", mode: 0o600 });
     }
+    skillNames.push(`${RUNTIME_PLUGIN_NAME}:${skillId}`);
   }
+  return { path: pluginRoot, skillNames };
 }
-

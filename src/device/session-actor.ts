@@ -283,7 +283,12 @@ export class SessionActor {
     const previous = this.runtime;
     this.setStatus("switching_profile");
     this.emit("profile.switching", { from: previous.fingerprint });
-    const target = await this.runtimes.acquire(this.workspace.path, profile);
+    const target = await this.runtimes.acquire(
+      this.workspace.path,
+      profile,
+      this.request.controlContext,
+      this.request.bootstrap,
+    );
     let resumed: NativeSession | undefined;
     let detached = false;
     try {
