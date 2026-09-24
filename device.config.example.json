@@ -9,7 +9,6 @@
     "port": 9700
   },
   "dataDir": ".data/device",
-  "codexHome": ".data/device/codex-home",
   "workspaces": [
     {
       "id": "agent-client",
@@ -19,7 +18,6 @@
   ],
   "runtime": {
     "maxWorkers": 8,
-    "workerIdleTimeoutSeconds": 1800,
-    "codexCommand": "codex"
+    "workerIdleTimeoutSeconds": 1800
   }
 }

@@ -20,27 +20,9 @@ async function version(command: string): Promise<string | undefined> {
   }
 }
 
-export async function detectAgents(codexCommand: string): Promise<AgentInfo[]> {
-  const [codexVersion, claudeVersion] = await Promise.all([version(codexCommand), version("claude")]);
+export async function detectAgents(): Promise<AgentInfo[]> {
+  const claudeVersion = await version("claude");
   return [
-    {
-      id: "codex",
-      available: Boolean(codexVersion),
-      ...(codexVersion ? { version: codexVersion } : {}),
-      capabilities: {
-        streaming: true,
-        approvals: true,
-        clarifyQuestions: true,
-        nativeGoal: true,
-        steerCurrentTurn: true,
-        queueMessages: true,
-        interrupt: true,
-        switchModelNextTurn: true,
-        changePermissionLive: false,
-        mutateToolInput: false,
-        resumeSession: true,
-      },
-    },
     {
       id: "claude",
       available: Boolean(claudeVersion),

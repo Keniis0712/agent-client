@@ -5,7 +5,7 @@ export const runtimeProfileSchema = z.object({
   baseUrl: z.string().url(),
   apiKey: z.string().min(1),
   model: z.string().min(1),
-  protocol: z.enum(["responses", "anthropic"]).optional(),
+  protocol: z.literal("anthropic").optional(),
   modelProvider: z.string().min(1).optional(),
   reasoningEffort: z.enum(["minimal", "low", "medium", "high", "xhigh"]).optional(),
   extraHeaders: z.record(z.string(), z.string()).optional(),
@@ -53,7 +53,7 @@ export const permissionPolicySchema = z.object({
 export const createSessionSchema = z.object({
   sessionId: z.string().min(1).optional(),
   deviceId: z.string().min(1),
-  agent: z.enum(["codex", "claude"]),
+  agent: z.literal("claude"),
   workspaceId: z.string().min(1),
   runtimeProfile: runtimeProfileSchema.optional(),
   controlContext: controlContextSchema.optional(),

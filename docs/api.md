@@ -87,7 +87,7 @@
 | `resumeSession` | 支持恢复原生 Thread/Session |
 
 上层必须根据这里的能力动态展示操作。例如 Claude 的 `steerCurrentTurn=false`，`steer`
-请求会退化为排队；Codex 支持真正的当前 Turn steer。
+请求会退化为排队。
 
 ### 2.3 SessionRecord
 
@@ -147,10 +147,9 @@
 
 - `baseUrl` 必须是合法 URL。
 - `apiKey`、`model` 不可为空。
-- Codex 当前只支持 `protocol: "responses"`。
-- Claude 使用 `protocol: "anthropic"`。
+- 当前仅支持 `protocol: "anthropic"`。
 - `reasoningEffort` 可选值：`minimal | low | medium | high | xhigh`。
-- `extraHeaders` 当前由 Codex Profile 注入；Claude Adapter 暂未消费该字段。
+- `extraHeaders` 是前向兼容保留字段，当前 Claude Adapter 暂未消费。
 - `options` 是前向兼容保留字段，当前 Adapter 不消费。
 - Profile 的 key 不应出现在日志或事件中；事件只返回不可逆的 `profileFingerprint`。
 
@@ -234,7 +233,7 @@ POST /v1/sessions
 Content-Type: application/json
 ```
 
-编排型会话还可以携带 `controlContext` 与 `bootstrap`。它们只作用于当前 Runtime，不会写入目标工作区或用户的全局 Codex/Claude 配置：
+编排型会话还可以携带 `controlContext` 与 `bootstrap`。它们只作用于当前 Runtime，不会写入目标工作区或用户的全局 Claude 配置：
 
 ```json
 {
@@ -286,7 +285,7 @@ Content-Type: application/json
 |---|---:|---|
 | `sessionId` | 否 | 省略时由服务生成 `ses_*` |
 | `deviceId` | 是 | 目标在线设备 |
-| `agent` | 是 | `codex` 或 `claude` |
+| `agent` | 是 | 固定为 `claude` |
 | `workspaceId` | 是 | 来自设备注册信息的工作区 ID |
 | `runtimeProfile` | 否 | 本次会话的 endpoint/key/model |
 | `permissionPolicy` | 否 | 默认 `{ "mode": "prompt" }` |
@@ -389,9 +388,7 @@ GET /v1/sessions/{sessionId}/events?afterSequence=17
 GET /v1/sessions/{sessionId}/history
 ```
 
-该接口实时读取 Agent 平台自身保存的会话记录，不从 Gateway 事件表重建聊天内容。Codex
-优先读取 Thread 的 turns/items；对于尚未支持 `list_turns` 的 CLI 版本，读取 Codex 返回路径所指向的
-原生 rollout。Claude 读取 SDK SessionStore 保存的主 transcript。响应示例：
+该接口实时读取 Claude SDK SessionStore 保存的主 transcript，不从 Gateway 事件表重建聊天内容。响应示例：
 
 ```json
 {
@@ -410,7 +407,7 @@ GET /v1/sessions/{sessionId}/history
 
 `role` 只包含 `user` 和 `assistant`。工具调用、推理和系统元数据不会作为聊天消息返回。
 内部编排通知可能带有 `hidden: true`，UI 应默认隐藏。SessionActor 或设备服务重启后仍可读取历史：
-设备根据持久化的会话元数据定位 Codex 原生 rollout 或 Claude SDK SessionStore，不需要恢复执行 Runtime。
+设备根据持久化的会话元数据定位 Claude SDK SessionStore，不需要恢复执行 Runtime。
 
 ### 3.9 Goal 快捷 API
 
@@ -437,8 +434,8 @@ GET /v1/sessions/{sessionId}/goal
 }
 ```
 
-Codex Goal 支持 `tokenBudget`、状态和原生用量。Claude `/goal` 支持 condition、iterations
-和 last reason，不支持 token budget；Claude 的 `tokenBudget` 因此为 `null`。
+Claude `/goal` 支持 condition、iterations 和 last reason，不支持 token budget；
+`tokenBudget` 因此为 `null`。
 
 #### 设置 Goal
 
@@ -618,7 +615,7 @@ command.applied
 }
 ```
 
-Claude 不接受非空 `tokenBudget`；Codex 支持。成功后产生 `goal.updated`。
+Claude 不接受非空 `tokenBudget`。成功后产生 `goal.updated`。
 
 ### 4.8 `goal.get`
 
@@ -725,7 +722,6 @@ WebSocket 不负责历史补发。断线恢复必须调用 `/events?afterSequenc
 | `assistant.delta` | `{ "delta": "text fragment" }` |
 | `reasoning.delta` | `{ "delta": "reasoning fragment" }` |
 | `tool.started` | Provider 工具调用块，通常包含工具名、ID 和输入 |
-| `tool.output.delta` | Codex 工具输出增量 |
 | `tool.completed` | 工具结果，通常包含 tool ID、content、is_error |
 | `provider.error` | `{ "message": "..." }` 或 `{ "error": SerializedError }` |
 

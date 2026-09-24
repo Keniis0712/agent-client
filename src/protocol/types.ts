@@ -1,4 +1,4 @@
-export type AgentKind = "codex" | "claude";
+export type AgentKind = "claude";
 
 export interface DeviceInfo {
   id: string;
@@ -40,7 +40,7 @@ export interface RuntimeProfileInput {
   baseUrl: string;
   apiKey: string;
   model: string;
-  protocol?: "responses" | "anthropic";
+  protocol?: "anthropic";
   modelProvider?: string;
   reasoningEffort?: "minimal" | "low" | "medium" | "high" | "xhigh";
   extraHeaders?: Record<string, string>;

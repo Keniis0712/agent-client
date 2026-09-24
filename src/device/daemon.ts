@@ -31,12 +31,10 @@ export class DeviceDaemon {
   constructor(private readonly config: DeviceConfig) {
     this.store = new DeviceStore(join(config.dataDir, "device.sqlite"));
     this.runtimes = new RuntimeManager({
-      codexCommand: config.runtime.codexCommand,
       maxWorkers: config.runtime.maxWorkers,
       workerIdleTimeoutSeconds: config.runtime.workerIdleTimeoutSeconds,
       claudeSessionStorePath: join(config.dataDir, "claude-sessions.sqlite"),
       runtimeRoot: join(config.dataDir, "runtimes"),
-      ...(config.codexHome ? { codexHome: config.codexHome } : {}),
     });
   }
 
@@ -65,7 +63,7 @@ export class DeviceDaemon {
     this.socket = socket;
     socket.on("open", async () => {
       log("info", "Connected to control server", { url: this.config.controlServerUrl });
-      const agents = await detectAgents(this.config.runtime.codexCommand);
+      const agents = await detectAgents();
       this.send({
         type: "device.register",
         requestId: createId("req"),

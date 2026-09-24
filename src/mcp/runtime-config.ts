@@ -19,18 +19,3 @@ export function projectConsoleMcp(context?: ControlContext): RuntimeMcpServer | 
   if (context.projectRunId) env.APC_PROJECT_RUN_ID = context.projectRunId;
   return { command: process.execPath, args: [bridgePath], env };
 }
-
-function quote(value: string): string {
-  return JSON.stringify(value);
-}
-
-export function codexMcpOverrides(server?: RuntimeMcpServer): string[] {
-  if (!server) return [];
-  const prefix = "mcp_servers.agent_project_console";
-  return [
-    `${prefix}.command=${quote(server.command)}`,
-    `${prefix}.args=[${server.args.map(quote).join(",")}]`,
-    ...Object.entries(server.env).map(([key, value]) => `${prefix}.env.${key}=${quote(value)}`),
-  ];
-}
-

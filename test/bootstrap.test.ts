@@ -10,7 +10,7 @@ import {
   controlContextFingerprint,
   materializeSkillBundles,
 } from "../src/device/runtime-bootstrap.js";
-import { codexMcpOverrides, projectConsoleMcp } from "../src/mcp/runtime-config.js";
+import { projectConsoleMcp } from "../src/mcp/runtime-config.js";
 
 const context = {
   consoleBaseUrl: "http://console.internal:8765",
@@ -23,7 +23,7 @@ const context = {
 test("project control context requires project and run ids", () => {
   assert.throws(() => createSessionSchema.parse({
     deviceId: "device",
-    agent: "codex",
+    agent: "claude",
     workspaceId: "workspace",
     controlContext: {
       consoleBaseUrl: "http://console.internal:8765",
@@ -33,11 +33,24 @@ test("project control context requires project and run ids", () => {
   }));
   const parsed = createSessionSchema.parse({
     deviceId: "device",
-    agent: "codex",
+    agent: "claude",
     workspaceId: "workspace",
     controlContext: context,
   });
   assert.equal(parsed.controlContext?.projectRunId, "run-1");
+});
+
+test("session schema only accepts Claude", () => {
+  assert.equal(createSessionSchema.parse({
+    deviceId: "device",
+    agent: "claude",
+    workspaceId: "workspace",
+  }).agent, "claude");
+  assert.throws(() => createSessionSchema.parse({
+    deviceId: "device",
+    agent: "codex",
+    workspaceId: "workspace",
+  }));
 });
 
 test("bootstrap bundles are materialized under the runtime overlay", async () => {
@@ -70,9 +83,6 @@ test("runtime MCP bridge is scoped by control context", () => {
   assert.ok(server);
   assert.equal(server.env.APC_AGENT_ROLE, "project");
   assert.equal(server.env.APC_PROJECT_RUN_ID, "run-1");
-  const overrides = codexMcpOverrides(server);
-  assert.ok(overrides.some((value) => value.includes("mcp_servers.agent_project_console.command")));
   assert.equal(controlContextFingerprint(context), controlContextFingerprint({ ...context }));
   assert.notEqual(controlContextFingerprint(context), controlContextFingerprint({ ...context, projectRunId: "run-2" }));
 });
-

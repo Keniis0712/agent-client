@@ -98,7 +98,6 @@ export class SessionActor {
 
   private async initialize(): Promise<void> {
     this.runtime = await this.runtimes.acquire(
-      this.request.agent,
       this.workspace.path,
       this.request.runtimeProfile,
       this.request.controlContext,
@@ -284,7 +283,7 @@ export class SessionActor {
     const previous = this.runtime;
     this.setStatus("switching_profile");
     this.emit("profile.switching", { from: previous.fingerprint });
-    const target = await this.runtimes.acquire(this.session.agent, this.workspace.path, profile);
+    const target = await this.runtimes.acquire(this.workspace.path, profile);
     let resumed: NativeSession | undefined;
     let detached = false;
     try {
@@ -295,23 +294,14 @@ export class SessionActor {
           threadId: this.nativeSession.threadId,
           cwd: this.workspace.path,
           model: profile.model,
-          ...(this.session.agent === "codex" ? { modelProvider: "gateway_runtime" } : {}),
           permissionPolicy: this.permissionPolicy,
         });
       } else {
-        // Codex does not persist an untouched thread, so there is nothing for a
-        // second App Server to resume until the first turn has started.
         resumed = await target.adapter.createSession({
           cwd: this.workspace.path,
           model: profile.model,
           permissionPolicy: this.permissionPolicy,
         });
-      }
-      if (this.session.agent === "codex" && resumed.modelProvider !== "gateway_runtime") {
-        throw new GatewayError(
-          "PROFILE_RUNTIME_MISMATCH",
-          `Expected gateway_runtime, got ${String(resumed.modelProvider)}`,
-        );
       }
       if (!detached) {
         await previous.adapter.detachSession(this.nativeSession);
