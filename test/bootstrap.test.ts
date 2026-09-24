@@ -1,0 +1,78 @@
+import assert from "node:assert/strict";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import test from "node:test";
+
+import { createSessionSchema } from "../src/protocol/schemas.js";
+import {
+  compileBootstrapInstructions,
+  controlContextFingerprint,
+  materializeSkillBundles,
+} from "../src/device/runtime-bootstrap.js";
+import { codexMcpOverrides, projectConsoleMcp } from "../src/mcp/runtime-config.js";
+
+const context = {
+  consoleBaseUrl: "http://console.internal:8765",
+  role: "project" as const,
+  orchestratorSessionId: "main-1",
+  projectId: "project-1",
+  projectRunId: "run-1",
+};
+
+test("project control context requires project and run ids", () => {
+  assert.throws(() => createSessionSchema.parse({
+    deviceId: "device",
+    agent: "codex",
+    workspaceId: "workspace",
+    controlContext: {
+      consoleBaseUrl: "http://console.internal:8765",
+      role: "project",
+      orchestratorSessionId: "main-1",
+    },
+  }));
+  const parsed = createSessionSchema.parse({
+    deviceId: "device",
+    agent: "codex",
+    workspaceId: "workspace",
+    controlContext: context,
+  });
+  assert.equal(parsed.controlContext?.projectRunId, "run-1");
+});
+
+test("bootstrap bundles are materialized under the runtime overlay", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "agent-bootstrap-"));
+  try {
+    const bootstrap = {
+      instructionsVersion: "project-v1",
+      instructions: "Own the project.",
+      skillBundles: [{
+        id: "project-agent",
+        version: "1.0.0",
+        files: { "SKILL.md": "# Project Agent", "refs/reporting.md": "Report sparingly." },
+      }],
+    };
+    await materializeSkillBundles(directory, bootstrap);
+    assert.equal(
+      await readFile(join(directory, "skills", "project-agent@1.0.0", "SKILL.md"), "utf8"),
+      "# Project Agent",
+    );
+    const instructions = compileBootstrapInstructions(bootstrap, context) ?? "";
+    assert.match(instructions, /Role: project/);
+    assert.match(instructions, /Report sparingly/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("runtime MCP bridge is scoped by control context", () => {
+  const server = projectConsoleMcp(context);
+  assert.ok(server);
+  assert.equal(server.env.APC_AGENT_ROLE, "project");
+  assert.equal(server.env.APC_PROJECT_RUN_ID, "run-1");
+  const overrides = codexMcpOverrides(server);
+  assert.ok(overrides.some((value) => value.includes("mcp_servers.agent_project_console.command")));
+  assert.equal(controlContextFingerprint(context), controlContextFingerprint({ ...context }));
+  assert.notEqual(controlContextFingerprint(context), controlContextFingerprint({ ...context, projectRunId: "run-2" }));
+});
+
