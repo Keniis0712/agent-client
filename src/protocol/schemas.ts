@@ -54,7 +54,7 @@ export const createSessionSchema = z.object({
   sessionId: z.string().min(1).optional(),
   deviceId: z.string().min(1),
   agent: z.literal("claude"),
-  workspaceId: z.string().min(1),
+  workingDirectory: z.string().min(1).optional(),
   runtimeProfile: runtimeProfileSchema.optional(),
   controlContext: controlContextSchema.optional(),
   bootstrap: agentBootstrapSchema.optional(),

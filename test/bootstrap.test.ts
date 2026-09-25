@@ -25,7 +25,6 @@ test("project control context requires project and run ids", () => {
   assert.throws(() => createSessionSchema.parse({
     deviceId: "device",
     agent: "claude",
-    workspaceId: "workspace",
     controlContext: {
       consoleBaseUrl: "http://console.internal:8765",
       role: "project",
@@ -35,7 +34,7 @@ test("project control context requires project and run ids", () => {
   const parsed = createSessionSchema.parse({
     deviceId: "device",
     agent: "claude",
-    workspaceId: "workspace",
+    workingDirectory: "D:/project",
     controlContext: context,
   });
   assert.equal(parsed.controlContext?.projectRunId, "run-1");
@@ -45,12 +44,12 @@ test("session schema only accepts Claude", () => {
   assert.equal(createSessionSchema.parse({
     deviceId: "device",
     agent: "claude",
-    workspaceId: "workspace",
+    workingDirectory: "D:/project",
   }).agent, "claude");
   assert.throws(() => createSessionSchema.parse({
     deviceId: "device",
     agent: "codex",
-    workspaceId: "workspace",
+    workingDirectory: "D:/project",
   }));
 });
 

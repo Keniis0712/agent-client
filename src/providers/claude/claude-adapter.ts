@@ -169,6 +169,12 @@ export class ClaudeAdapter implements AgentAdapter {
   async resolveApproval(approvalId: string, decision: ApprovalDecision): Promise<void> {
     const pending = this.approvals.get(approvalId);
     if (!pending) throw new GatewayError("APPROVAL_NOT_PENDING", "Approval is not pending");
+    if (!decision || !["allow_once", "allow_session", "allow_with_changes", "deny", "cancel"].includes(decision.type)) {
+      throw new GatewayError("APPROVAL_DECISION_INVALID", "Approval decision requires a valid type");
+    }
+    if (decision.type === "allow_with_changes" && !decision.updatedInput) {
+      throw new GatewayError("APPROVAL_DECISION_INVALID", "allow_with_changes requires updatedInput");
+    }
     this.approvals.delete(approvalId);
     if (decision.type === "allow_once" || decision.type === "allow_with_changes" || decision.type === "allow_session") {
       pending.resolve({
@@ -270,7 +276,11 @@ export class ClaudeAdapter implements AgentAdapter {
         ...(resume ? { resume } : {}),
         ...(!resume ? { sessionId: provisionalId } : {}),
         ...(native.model ? { model: native.model } : {}),
-        ...(this.profile || this.builtInTools !== undefined ? { settingSources: [] } : {}),
+        ...(this.profile
+          ? { settingSources: [] }
+          : this.builtInTools !== undefined
+            ? { settingSources: ["user" as const] }
+            : {}),
         ...(this.builtInTools !== undefined
           ? { managedSettings: { disableBundledSkills: true } }
           : {}),

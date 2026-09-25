@@ -6,7 +6,6 @@ import type {
   RuntimeProfileInput,
   SessionCommand,
   SessionRecord,
-  WorkspaceInfo,
 } from "../protocol/types.js";
 import type {
   AgentAdapter,
@@ -40,7 +39,6 @@ export class SessionActor {
   private constructor(
     private readonly deviceId: string,
     private readonly request: CreateSessionRequest,
-    private readonly workspace: WorkspaceInfo,
     private readonly runtimes: RuntimeManager,
     private readonly store: DeviceStore,
     private readonly publish: (event: AgentEvent) => void,
@@ -51,7 +49,7 @@ export class SessionActor {
       id: request.sessionId ?? createId("ses"),
       deviceId,
       agent: request.agent,
-      workspaceId: request.workspaceId,
+      workingDirectory: request.workingDirectory!,
       status: "starting",
       revision: 0,
       lastSequence: 0,
@@ -63,12 +61,11 @@ export class SessionActor {
   static async create(
     deviceId: string,
     request: CreateSessionRequest,
-    workspace: WorkspaceInfo,
     runtimes: RuntimeManager,
     store: DeviceStore,
     publish: (event: AgentEvent) => void,
   ): Promise<SessionActor> {
-    const actor = new SessionActor(deviceId, request, workspace, runtimes, store, publish);
+    const actor = new SessionActor(deviceId, request, runtimes, store, publish);
     try {
       await actor.initialize();
       return actor;
@@ -98,14 +95,14 @@ export class SessionActor {
 
   private async initialize(): Promise<void> {
     this.runtime = await this.runtimes.acquire(
-      this.workspace.path,
+      this.request.workingDirectory!,
       this.request.runtimeProfile,
       this.request.controlContext,
       this.request.bootstrap,
     );
     this.bindAdapter(this.runtime.adapter);
     this.nativeSession = await this.runtime.adapter.createSession({
-      cwd: this.workspace.path,
+      cwd: this.request.workingDirectory!,
       ...(this.request.runtimeProfile?.model ? { model: this.request.runtimeProfile.model } : {}),
       permissionPolicy: this.permissionPolicy,
       ...(this.request.bootstrap || this.request.controlContext
@@ -284,7 +281,7 @@ export class SessionActor {
     this.setStatus("switching_profile");
     this.emit("profile.switching", { from: previous.fingerprint });
     const target = await this.runtimes.acquire(
-      this.workspace.path,
+      this.request.workingDirectory!,
       profile,
       this.request.controlContext,
       this.request.bootstrap,
@@ -297,13 +294,13 @@ export class SessionActor {
         detached = true;
         resumed = await target.adapter.resumeSession({
           threadId: this.nativeSession.threadId,
-          cwd: this.workspace.path,
+          cwd: this.request.workingDirectory!,
           model: profile.model,
           permissionPolicy: this.permissionPolicy,
         });
       } else {
         resumed = await target.adapter.createSession({
-          cwd: this.workspace.path,
+          cwd: this.request.workingDirectory!,
           model: profile.model,
           permissionPolicy: this.permissionPolicy,
         });
@@ -320,13 +317,13 @@ export class SessionActor {
           this.nativeSession = this.hasStartedTurn
             ? await previous.adapter.resumeSession({
                 threadId: this.nativeSession.threadId,
-                cwd: this.workspace.path,
+                cwd: this.request.workingDirectory!,
                 model: this.session.effectiveModel,
                 modelProvider: this.session.effectiveModelProvider,
                 permissionPolicy: this.permissionPolicy,
               })
             : await previous.adapter.createSession({
-                cwd: this.workspace.path,
+                cwd: this.request.workingDirectory!,
                 model: this.session.effectiveModel,
                 permissionPolicy: this.permissionPolicy,
               });

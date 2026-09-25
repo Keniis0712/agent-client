@@ -1,5 +1,6 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
-import { join } from "node:path";
+import { mkdir, stat } from "node:fs/promises";
+import { isAbsolute, join, resolve } from "node:path";
 import WebSocket from "ws";
 import type {
   AgentEvent,
@@ -76,7 +77,6 @@ export class DeviceDaemon {
             daemonVersion: "0.1.0",
           },
           agents,
-          workspaces: this.config.workspaces,
         },
       });
       for (const event of this.store.pendingEvents()) this.send({ type: "agent.event", payload: event });
@@ -165,12 +165,28 @@ export class DeviceDaemon {
   private async createSession(request: CreateSessionRequest): Promise<SessionActor> {
     const sessionId = request.sessionId ?? createId("ses");
     if (this.actors.has(sessionId)) throw new GatewayError("SESSION_ALREADY_EXISTS", sessionId);
-    const workspace = this.config.workspaces.find((item) => item.id === request.workspaceId);
-    if (!workspace) throw new GatewayError("WORKSPACE_NOT_FOUND", request.workspaceId);
+    if (request.workingDirectory && !isAbsolute(request.workingDirectory)) {
+      throw new GatewayError("WORKING_DIRECTORY_INVALID", "workingDirectory must be an absolute path");
+    }
+    const workingDirectory = request.workingDirectory
+      ? resolve(request.workingDirectory)
+      : join(this.config.dataDir, "sessions", sessionId);
+    if (request.workingDirectory) {
+      let info;
+      try {
+        info = await stat(workingDirectory);
+      } catch {
+        throw new GatewayError("WORKING_DIRECTORY_NOT_FOUND", workingDirectory);
+      }
+      if (!info.isDirectory()) {
+        throw new GatewayError("WORKING_DIRECTORY_NOT_FOUND", `${workingDirectory} is not a directory`);
+      }
+    } else {
+      await mkdir(workingDirectory, { recursive: true });
+    }
     const actor = await SessionActor.create(
       this.config.device.id,
-      { ...request, sessionId },
-      workspace,
+      { ...request, sessionId, workingDirectory },
       this.runtimes,
       this.store,
       (event) => this.publish(event),

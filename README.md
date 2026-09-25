@@ -32,7 +32,7 @@ Content-Type: application/json
 {
   "deviceId": "my-device",
   "agent": "claude",
-  "workspaceId": "agent-client",
+  "workingDirectory": "D:\\project\\agent-client",
   "runtimeProfile": {
     "baseUrl": "https://api.example.com",
     "apiKey": "sk-example",

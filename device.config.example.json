@@ -9,13 +9,6 @@
     "port": 9700
   },
   "dataDir": ".data/device",
-  "workspaces": [
-    {
-      "id": "agent-client",
-      "name": "Agent Client",
-      "path": "D:\\project\\agent-client"
-    }
-  ],
   "runtime": {
     "maxWorkers": 8,
     "workerIdleTimeoutSeconds": 1800

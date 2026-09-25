@@ -8,12 +8,6 @@ export interface DeviceInfo {
   daemonVersion: string;
 }
 
-export interface WorkspaceInfo {
-  id: string;
-  name: string;
-  path: string;
-}
-
 export interface AgentInfo {
   id: AgentKind;
   available: boolean;
@@ -85,7 +79,7 @@ export interface SessionRecord {
   id: string;
   deviceId: string;
   agent: AgentKind;
-  workspaceId: string;
+  workingDirectory: string;
   nativeSessionId?: string;
   nativeThreadId?: string;
   runtimeId?: string;
@@ -197,7 +191,7 @@ export interface CreateSessionRequest {
   sessionId?: string;
   deviceId: string;
   agent: AgentKind;
-  workspaceId: string;
+  workingDirectory?: string;
   runtimeProfile?: RuntimeProfileInput;
   controlContext?: ControlContext;
   bootstrap?: AgentBootstrapInput;
@@ -221,7 +215,6 @@ export interface AgentEvent<T = unknown> {
 export interface DeviceRegistration {
   device: DeviceInfo;
   agents: AgentInfo[];
-  workspaces: WorkspaceInfo[];
 }
 
 export type ControlToDeviceMessage =

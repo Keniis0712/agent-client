@@ -9,9 +9,6 @@ const configSchema = z.object({
     .object({ host: z.string().default("127.0.0.1"), port: z.number().int().positive().default(9700) })
     .default({ host: "127.0.0.1", port: 9700 }),
   dataDir: z.string().default(".data/device"),
-  workspaces: z.array(
-    z.object({ id: z.string().min(1), name: z.string().min(1), path: z.string().min(1) }),
-  ),
   runtime: z
     .object({
       maxWorkers: z.number().int().positive().default(8),
@@ -29,6 +26,5 @@ export async function loadDeviceConfig(path: string): Promise<DeviceConfig> {
   return {
     ...config,
     dataDir: resolve(config.dataDir),
-    workspaces: config.workspaces.map((workspace) => ({ ...workspace, path: resolve(workspace.path) })),
   };
 }

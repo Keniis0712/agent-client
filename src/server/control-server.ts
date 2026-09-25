@@ -98,7 +98,7 @@ export class ControlServer {
           id: payload.sessionId!,
           deviceId: payload.deviceId,
           agent: payload.agent,
-          workspaceId: payload.workspaceId,
+          workingDirectory: payload.workingDirectory ?? "",
           status: "starting",
           revision: 0,
           lastSequence: 0,

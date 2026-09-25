@@ -10,6 +10,9 @@ export function toolPermissionDecision(
   policy: PermissionPolicy,
   toolName: string,
 ): "allow" | "deny" | "prompt" {
+  // APC is the platform control plane. Console-created agents must always be
+  // able to use it without deadlocking behind that same approval channel.
+  if (toolName.startsWith("mcp__agent_project_console__")) return "allow";
   if ((policy.disallowedTools ?? []).some((rule) => matches(rule, toolName))) return "deny";
   if ((policy.allowedTools ?? []).some((rule) => matches(rule, toolName))) return "allow";
   if (policy.mode === "full") return "allow";
