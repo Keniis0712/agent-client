@@ -1,0 +1,16 @@
+{
+  "device": {
+    "id": "my-device",
+    "name": "My development device"
+  },
+  "controlServerUrl": "ws://127.0.0.1:8080/v1/device/connect",
+  "localApi": {
+    "host": "127.0.0.1",
+    "port": 9700
+  },
+  "dataDir": ".data/device",
+  "runtime": {
+    "maxWorkers": 8,
+    "workerIdleTimeoutSeconds": 1800
+  }
+}
